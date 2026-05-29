@@ -1,0 +1,46 @@
+{
+  "name": "linux-to-go",
+  "version": "1.0.0",
+  "description": "Linux To Go - 将Ubuntu装入U盘/移动硬盘，即插即用",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "keywords": ["linux", "ubuntu", "ventoy", "usb", "bootable", "portable"],
+  "author": "linux-to-go",
+  "license": "MIT",
+  "dependencies": {
+    "drivelist": "^12.0.2",
+    "node-fetch": "^3.3.2",
+    "progress-stream": "^2.0.0"
+  },
+  "devDependencies": {
+    "electron": "^42.3.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.linuxtogo.app",
+    "productName": "Linux To Go",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
