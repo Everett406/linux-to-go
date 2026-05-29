@@ -11,7 +11,14 @@
     "build:mac": "electron-builder --mac",
     "build:linux": "electron-builder --linux"
   },
-  "keywords": ["linux", "ubuntu", "ventoy", "usb", "bootable", "portable"],
+  "keywords": [
+    "linux",
+    "ubuntu",
+    "ventoy",
+    "usb",
+    "bootable",
+    "portable"
+  ],
   "author": "linux-to-go",
   "license": "MIT",
   "dependencies": {
@@ -21,7 +28,7 @@
   },
   "devDependencies": {
     "electron": "^42.3.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.8.1"
   },
   "build": {
     "appId": "com.linuxtogo.app",
