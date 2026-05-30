@@ -6,6 +6,8 @@ let ubuntuVersions = [];
 let isCustomIso = false;
 let customIsoInfo = null;
 let isRunning = false;
+let selectedMirror = '官方源'; // 默认使用官方源
+let mirrorTestResults = null;
 
 // DOM Elements
 const el = {
@@ -46,6 +48,7 @@ async function init() {
     ];
   }
   renderVersions();
+  renderMirrorSelector();
   setupEventListeners();
 }
 
@@ -129,6 +132,147 @@ function selectDrive(drive, element) {
   updateSummary();
 }
 
+// ===== 镜像源选择 =====
+async function renderMirrorSelector() {
+  const mirrorSection = document.createElement('div');
+  mirrorSection.className = 'mirror-section';
+  mirrorSection.innerHTML = `
+    <div class="mirror-header">
+      <label>下载镜像源：</label>
+      <button class="btn btn-sm" id="btn-test-mirror">🚀 自动测速</button>
+    </div>
+    <div class="mirror-list" id="mirror-list">
+      <div class="mirror-item active" data-mirror="自动选择">⚡ 自动选择（推荐）</div>
+    </div>
+    <div class="mirror-status" id="mirror-status"></div>
+  `;
+
+  // 插入到版本列表前面
+  const versionSection = document.getElementById('step-version');
+  const stepContent = versionSection.querySelector('.step-content');
+  stepContent.insertBefore(mirrorSection, stepContent.firstChild);
+
+  // 绑定测速按钮
+  document.getElementById('btn-test-mirror').addEventListener('click', testMirrorSpeeds);
+
+  // 加载镜像列表
+  try {
+    const mirrors = await window.electronAPI.getMirrors();
+    const list = document.getElementById('mirror-list');
+    list.innerHTML = '';
+
+    // 添加自动选择
+    const autoItem = document.createElement('div');
+    autoItem.className = 'mirror-item active';
+    autoItem.dataset.mirror = '自动选择';
+    autoItem.innerHTML = '⚡ 自动选择（推荐）';
+    autoItem.addEventListener('click', () => selectMirror('自动选择', autoItem));
+    list.appendChild(autoItem);
+
+    // 添加各个镜像
+    mirrors.ubuntu.forEach(name => {
+      if (name === '官方源') return; // 跳过官方源，放最后
+      const item = document.createElement('div');
+      item.className = 'mirror-item';
+      item.dataset.mirror = name;
+      item.innerHTML = `📡 ${name}`;
+      item.addEventListener('click', () => selectMirror(name, item));
+      list.appendChild(item);
+    });
+
+    // 官方源放最后
+    const official = document.createElement('div');
+    official.className = 'mirror-item';
+    official.dataset.mirror = '官方源';
+    official.innerHTML = '🌐 官方源';
+    official.addEventListener('click', () => selectMirror('官方源', official));
+    list.appendChild(official);
+  } catch (err) {
+    console.error('Failed to load mirrors:', err);
+  }
+}
+
+function selectMirror(name, element) {
+  document.querySelectorAll('.mirror-item').forEach(el => el.classList.remove('active'));
+  element.classList.add('active');
+  selectedMirror = name;
+
+  const status = document.getElementById('mirror-status');
+  if (mirrorTestResults && mirrorTestResults.ubuntu.length > 0) {
+    const best = mirrorTestResults.ubuntu[0];
+    if (name === '自动选择') {
+      status.innerHTML = `<span class="mirror-best">将使用最快镜像：${best.name} (${best.elapsed}ms)</span>`;
+    } else {
+      const found = mirrorTestResults.ubuntu.find(m => m.name === name);
+      if (found) {
+        status.innerHTML = `<span>响应时间：${found.elapsed}ms</span>`;
+      } else {
+        status.innerHTML = '';
+      }
+    }
+  } else if (name !== '自动选择') {
+    status.innerHTML = `<span>已选择：${name}</span>`;
+  }
+}
+
+async function testMirrorSpeeds() {
+  const btn = document.getElementById('btn-test-mirror');
+  const status = document.getElementById('mirror-status');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ 测速中...';
+  status.innerHTML = '<span class="mirror-testing">正在测试各镜像源速度，请稍候...</span>';
+
+  try {
+    mirrorTestResults = await window.electronAPI.testMirrors();
+
+    if (mirrorTestResults.ubuntu.length === 0) {
+      status.innerHTML = '<span class="mirror-warn">⚠️ 所有镜像源测试失败，将使用官方源</span>';
+    } else {
+      const best = mirrorTestResults.ubuntu[0];
+      status.innerHTML = `<span class="mirror-best">✓ 最快镜像：${best.name} (${best.elapsed}ms)</span>`;
+
+      // 更新镜像列表显示测速结果
+      document.querySelectorAll('.mirror-item').forEach(item => {
+        const name = item.dataset.mirror;
+        if (name === '自动选择') {
+          item.innerHTML = `⚡ 自动选择（推荐 · 当前最佳：${best.name}）`;
+        } else {
+          const result = mirrorTestResults.ubuntu.find(m => m.name === name);
+          if (result) {
+            item.innerHTML = `📡 ${name} <span class="mirror-ping">${result.elapsed}ms</span>`;
+          } else {
+            item.innerHTML = `📡 ${name} <span class="mirror-ping mirror-ping-slow">超时</span>`;
+          }
+        }
+      });
+    }
+  } catch (err) {
+    status.innerHTML = '<span class="mirror-warn">⚠️ 测速失败：' + err.message + '</span>';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🚀 自动测速';
+  }
+}
+
+// 获取实际下载 URL（考虑镜像选择）
+async function getActualDownloadUrl(versionKey) {
+  let mirrorName = selectedMirror;
+
+  // 自动选择模式：使用测速结果中最快的
+  if (mirrorName === '自动选择' && mirrorTestResults && mirrorTestResults.ubuntu.length > 0) {
+    mirrorName = mirrorTestResults.ubuntu[0].name;
+    appendLog(`  自动选择镜像源: ${mirrorName}\n`);
+  }
+
+  const url = await window.electronAPI.getDownloadUrl({
+    type: 'ubuntu',
+    versionKey: versionKey,
+    mirrorName: mirrorName
+  });
+
+  return url;
+}
+
 // ===== 版本管理 =====
 function renderVersions() {
   el.versionList.innerHTML = '';
@@ -141,7 +285,7 @@ function renderVersions() {
       <span class="version-radio"></span>
       <div class="version-info">
         <div class="version-name">Ubuntu ${version.name}</div>
-        <div class="version-size">约 ${sizeGB} GB · ${version.url ? '需下载' : '本地'}</div>
+        <div class="version-size">约 ${sizeGB} GB · 需下载</div>
       </div>
     `;
     item.addEventListener('click', () => selectVersion(version, item));
@@ -333,9 +477,28 @@ async function runFullCreationFlow() {
   if (!ventoyExePath) {
     updateProgress(10, '下载 Ventoy...');
     appendLog(`开始下载 Ventoy ${ventoyInfo.version}...\n`);
+
+    // 使用镜像代理加速 Ventoy 下载
+    let ventoyDownloadUrl = ventoyInfo.url;
+    const ventoyMirrorName = selectedMirror === '自动选择' && mirrorTestResults && mirrorTestResults.ventoy.length > 0
+      ? mirrorTestResults.ventoy[0].name
+      : (selectedMirror === '自动选择' ? 'GhProxy' : null);
+
+    if (ventoyMirrorName) {
+      const ventoyUrl = await window.electronAPI.getDownloadUrl({
+        type: 'ventoy',
+        versionKey: ventoyInfo.url.replace('https://github.com/', ''),
+        mirrorName: ventoyMirrorName
+      });
+      if (ventoyUrl) {
+        ventoyDownloadUrl = ventoyUrl;
+        appendLog(`  使用镜像: ${ventoyMirrorName}\n`);
+      }
+    }
+
     try {
       await window.electronAPI.downloadWithProgress({
-        url: ventoyInfo.url,
+        url: ventoyDownloadUrl,
         destPath: ventoyZip,
         id: 'ventoy'
       });
@@ -368,14 +531,16 @@ async function runFullCreationFlow() {
       appendLog(`✓ ISO 已存在于: ${isoPath}\n`);
     } else {
       updateProgress(30, '下载 Ubuntu ISO...');
+      const downloadUrl = await getActualDownloadUrl(selectedVersion.name);
       appendLog(`开始下载 Ubuntu ${selectedVersion.name}...\n`);
-      appendLog(`  URL: ${selectedVersion.url}\n`);
+      appendLog(`  镜像源: ${selectedMirror === '自动选择' && mirrorTestResults ? mirrorTestResults.ubuntu[0]?.name || '官方源' : selectedMirror}\n`);
+      appendLog(`  URL: ${downloadUrl}\n`);
       appendLog(`  预计大小: ${formatBytes(selectedVersion.size)}\n\n`);
       appendLog('  (下载可能需要几分钟，请耐心等待...)\n\n');
 
       try {
         await window.electronAPI.downloadWithProgress({
-          url: selectedVersion.url,
+          url: downloadUrl,
           destPath: isoPath,
           id: 'iso'
         });

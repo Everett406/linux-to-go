@@ -528,6 +528,95 @@ body {
   margin-bottom: 8px;
 }
 
+/* Mirror Selector */
+.mirror-section {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.mirror-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.mirror-header label {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.mirror-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mirror-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+  background: white;
+}
+
+.mirror-item:hover {
+  border-color: var(--primary);
+  background: #fff8f5;
+}
+
+.mirror-item.active {
+  border-color: var(--primary);
+  background: #fff0eb;
+  font-weight: 500;
+}
+
+.mirror-ping {
+  font-size: 11px;
+  color: var(--success);
+  background: #f0fff4;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.mirror-ping-slow {
+  color: var(--error);
+  background: #fff5f5;
+}
+
+.mirror-status {
+  margin-top: 10px;
+  font-size: 13px;
+  min-height: 20px;
+}
+
+.mirror-best {
+  color: var(--success);
+  font-weight: 500;
+}
+
+.mirror-testing {
+  color: var(--primary);
+}
+
+.mirror-warn {
+  color: var(--warning);
+}
+
 /* Log output */
 .log-output {
   background: #1a1a2e;

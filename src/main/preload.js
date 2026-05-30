@@ -6,6 +6,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listDrives: () => ipcRenderer.invoke('list-drives'),
   getAppDataPath: () => ipcRenderer.invoke('get-app-data-path'),
 
+  // 镜像源
+  getMirrors: () => ipcRenderer.invoke('get-mirrors'),
+  getDownloadUrl: (options) => ipcRenderer.invoke('get-download-url', options),
+  testMirrors: () => ipcRenderer.invoke('test-mirrors'),
+
   // 文件操作
   fileExists: (filePath) => ipcRenderer.invoke('file-exists', filePath),
   mkdir: (dirPath) => ipcRenderer.invoke('mkdir', dirPath),

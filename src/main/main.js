@@ -9,20 +9,43 @@ const AdmZip = require('adm-zip');
 let mainWindow;
 let currentProcess = null;
 
+// ===== 国内镜像源配置 =====
+const MIRRORS = {
+  // Ubuntu ISO 国内镜像（按优先级排列）
+  ubuntu: [
+    { name: '官方源', urlPrefix: 'https://releases.ubuntu.com' },
+    { name: '阿里云', urlPrefix: 'https://mirrors.aliyun.com/ubuntu-releases' },
+    { name: '清华大学', urlPrefix: 'https://mirrors.tuna.tsinghua.edu.cn/ubuntu-releases' },
+    { name: '中科大', urlPrefix: 'https://mirrors.ustc.edu.cn/ubuntu-releases' },
+    { name: '腾讯云', urlPrefix: 'https://mirrors.cloud.tencent.com/ubuntu-releases' },
+    { name: '华为云', urlPrefix: 'https://repo.huaweicloud.com/ubuntu-releases' }
+  ],
+  // Ventoy 下载代理
+  ventoy: [
+    { name: 'GitHub 官方', urlPrefix: 'https://github.com' },
+    { name: 'GhProxy', urlPrefix: 'https://ghproxy.com/https://github.com' },
+    { name: 'GhFast', urlPrefix: 'https://ghfast.top/https://github.com' },
+    { name: 'Moeyy', urlPrefix: 'https://github.moeyy.xyz/https://github.com' }
+  ]
+};
+
 // ===== Ubuntu 版本配置 =====
 const UBUNTU_VERSIONS = {
   '24.04.2 LTS': {
-    url: 'https://releases.ubuntu.com/24.04/ubuntu-24.04.2-desktop-amd64.iso',
+    url: 'ubuntu-24.04.2-desktop-amd64.iso',
+    path: '24.04',
     size: 6360000000,
     name: 'ubuntu-24.04.2-desktop-amd64.iso'
   },
   '24.10': {
-    url: 'https://releases.ubuntu.com/24.10/ubuntu-24.10-desktop-amd64.iso',
+    url: 'ubuntu-24.10-desktop-amd64.iso',
+    path: '24.10',
     size: 5200000000,
     name: 'ubuntu-24.10-desktop-amd64.iso'
   },
   '22.04.5 LTS': {
-    url: 'https://releases.ubuntu.com/22.04/ubuntu-22.04.5-desktop-amd64.iso',
+    url: 'ubuntu-22.04.5-desktop-amd64.iso',
+    path: '22.04',
     size: 4900000000,
     name: 'ubuntu-22.04.5-desktop-amd64.iso'
   }
@@ -57,11 +80,92 @@ app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) creat
 
 // ===== IPC Handlers =====
 
+// 构建完整下载 URL
+function buildUbuntuUrl(mirror, versionKey) {
+  const v = UBUNTU_VERSIONS[versionKey];
+  return `${mirror.urlPrefix}/${v.path}/${v.url}`;
+}
+
+function buildVentoyUrl(mirror, assetPath) {
+  return `${mirror.urlPrefix}/${assetPath}`;
+}
+
+// 测速：尝试 HEAD 请求获取响应时间
+async function testMirrorSpeed(mirror, testUrl) {
+  return new Promise((resolve) => {
+    const url = testUrl || mirror.urlPrefix;
+    const protocol = url.startsWith('https') ? https : http;
+    const start = Date.now();
+    const timeout = 5000;
+
+    try {
+      const req = protocol.request(url, { method: 'HEAD', timeout }, (res) => {
+        const elapsed = Date.now() - start;
+        resolve({ mirror, elapsed, status: res.statusCode });
+      });
+      req.on('error', () => resolve({ mirror, elapsed: Infinity, status: 0 }));
+      req.on('timeout', () => { req.destroy(); resolve({ mirror, elapsed: Infinity, status: 0 }); });
+      req.end();
+    } catch {
+      resolve({ mirror, elapsed: Infinity, status: 0 });
+    }
+  });
+}
+
 ipcMain.handle('get-ubuntu-versions', () => {
   return Object.keys(UBUNTU_VERSIONS).map(key => ({
     name: key,
-    ...UBUNTU_VERSIONS[key]
+    ...UBUNTU_VERSIONS[key],
+    url: buildUbuntuUrl(MIRRORS.ubuntu[0], key)
   }));
+});
+
+// 获取镜像列表
+ipcMain.handle('get-mirrors', () => {
+  return {
+    ubuntu: MIRRORS.ubuntu.map(m => m.name),
+    ventoy: MIRRORS.ventoy.map(m => m.name)
+  };
+});
+
+// 选择镜像源后获取下载 URL
+ipcMain.handle('get-download-url', (event, { type, versionKey, mirrorName }) => {
+  if (type === 'ubuntu') {
+    const mirror = MIRRORS.ubuntu.find(m => m.name === mirrorName) || MIRRORS.ubuntu[0];
+    return buildUbuntuUrl(mirror, versionKey);
+  }
+  if (type === 'ventoy') {
+    const mirror = MIRRORS.ventoy.find(m => m.name === mirrorName) || MIRRORS.ventoy[0];
+    return buildVentoyUrl(mirror, versionKey);
+  }
+  return null;
+});
+
+// 自动测速选择最快镜像
+ipcMain.handle('test-mirrors', async () => {
+  const results = { ubuntu: [], ventoy: [] };
+
+  // 测试 Ubuntu 镜像
+  const ubuntuTests = MIRRORS.ubuntu.map(m =>
+    testMirrorSpeed(m, m.urlPrefix)
+  );
+  const ubuntuResults = await Promise.all(ubuntuTests);
+  results.ubuntu = ubuntuResults
+    .filter(r => r.status >= 200 && r.status < 400 && r.elapsed < 10000)
+    .sort((a, b) => a.elapsed - b.elapsed)
+    .map(r => ({ name: r.mirror.name, elapsed: r.elapsed, urlPrefix: r.mirror.urlPrefix }));
+
+  // 测试 Ventoy 镜像
+  const ventoyTests = MIRRORS.ventoy.map(m =>
+    testMirrorSpeed(m, m.urlPrefix)
+  );
+  const ventoyResults = await Promise.all(ventoyTests);
+  results.ventoy = ventoyResults
+    .filter(r => r.status >= 200 && r.status < 400 && r.elapsed < 10000)
+    .sort((a, b) => a.elapsed - b.elapsed)
+    .map(r => ({ name: r.mirror.name, elapsed: r.elapsed, urlPrefix: r.mirror.urlPrefix }));
+
+  return results;
 });
 
 ipcMain.handle('list-drives', async () => {
