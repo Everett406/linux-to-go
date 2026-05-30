@@ -27,10 +27,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Create icon
+      - name: Resize icon to 512x512
+        run: node scripts/resize-icon.js
+
+      - name: Create ICO file
         run: node scripts/create-icon.js
 
-      - name: Build Windows installer
+      - name: Build Windows packages
         run: npm run build:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -43,8 +46,8 @@ jobs:
         with:
           name: windows-build
           path: |
-            dist/*.exe
-            dist/*.yml
+            dist/*Setup.exe
+            dist/*Portable.exe
           if-no-files-found: error
 
   release:
@@ -77,17 +80,25 @@ jobs:
             将 Ubuntu 装入 U 盘/移动硬盘，即插即用！
 
             ### 下载
-            - `Linux To Go-*-Windows-x64.exe` - 安装程序（推荐）
-            - `Linux To Go-*-Windows-x64.exe` (portable) - 便携版，无需安装
+            | 类型 | 文件名 | 说明 |
+            |------|--------|------|
+            | 🚀 安装程序 | `Linux To Go-*-Setup.exe` | 推荐，带安装向导 |
+            | 📦 便携版 | `Linux To Go-*-Portable.exe` | 无需安装，直接运行 |
 
             ### 系统要求
-            - Windows 10/11
-            - 管理员权限
+            - Windows 10/11 (64位)
+            - 管理员权限（Ventoy 安装需要）
             - 建议 U 盘容量 16GB 以上
 
             ### 使用说明
-            1. 下载并运行安装程序
+            1. 下载安装程序或便携版
             2. 插入 U 盘，打开 Linux To Go
-            3. 按照向导完成制作
+            3. 选择设备 → 选择 Ubuntu 版本 → 开始制作
+            4. 制作完成后，在目标电脑 BIOS 中选择 U 盘启动
+
+            ### 注意事项
+            - ⚠️ 制作过程中会格式化 U 盘，请提前备份数据
+            - 🌐 下载 ISO 需要网络连接（约 5GB）
+            - 💾 持久化功能可保留文件和安装的软件
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

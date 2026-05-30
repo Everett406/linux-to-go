@@ -31,7 +31,8 @@
   "devDependencies": {
     "electron": "^42.3.0",
     "electron-builder": "^26.8.1",
-    "png-to-ico": "^3.0.1"
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5"
   },
   "build": {
     "appId": "com.linuxtogo.app",
@@ -57,19 +58,18 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         },
         {
           "target": "portable",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         }
       ],
       "icon": "assets/icon.png",
-      "artifactName": "${productName}-${version}-Windows-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-Windows-${arch}-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Windows-${arch}-Portable.${ext}"
     },
     "nsis": {
       "oneClick": false,
