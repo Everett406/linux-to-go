@@ -82,11 +82,6 @@
       "installerHeaderIcon": "assets/icon.ico",
       "license": "LICENSE"
     },
-    "publish": {
-      "provider": "github",
-      "owner": "Everett406",
-      "repo": "linux-to-go",
-      "releaseType": "release"
-    }
+    "publish": null
   }
 }

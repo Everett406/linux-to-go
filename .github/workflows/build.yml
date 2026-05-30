@@ -5,11 +5,10 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      version:
-        description: '版本号 (例如: v1.0.0)'
-        required: true
-        default: 'v1.0.0'
+
+permissions:
+  contents: write
+  actions: read
 
 jobs:
   build-windows:
@@ -35,8 +34,6 @@ jobs:
 
       - name: Build Windows packages
         run: npm run build:win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: List dist directory
         run: Get-ChildItem -Path dist/
@@ -66,7 +63,7 @@ jobs:
         run: ls -la dist/
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: dist/*
