@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { spawn, exec } = require('child_process');
@@ -99,7 +99,7 @@ async function testMirrorSpeed(mirror, testUrl) {
     const timeout = 5000;
 
     try {
-      const req = protocol.request(url, { method: 'HEAD', timeout }, (res) => {
+      const req = protocol.request(url, { method: 'HEAD', timeout, rejectUnauthorized: false }, (res) => {
         const elapsed = Date.now() - start;
         resolve({ mirror, elapsed, status: res.statusCode });
       });
@@ -244,51 +244,70 @@ ipcMain.handle('download-with-progress', async (event, { url, destPath, id }) =>
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
     const file = fs.createWriteStream(destPath);
-    const client = url.startsWith('https') ? https : http;
+    let downloaded = 0;
+    let total = 0;
 
-    const req = client.get(url, {
-      headers: {
-        'User-Agent': 'linux-to-go/1.0.0',
-        'Accept': '*/*'
-      },
-      maxRedirects: 5,
-      timeout: 60000
-    }, (response) => {
-      if (response.statusCode !== 200) {
-        reject(new Error(`HTTP ${response.statusCode}: ${response.statusMessage}`));
+    const request = net.request({
+      url: url,
+      redirect: 'follow'
+    });
+
+    request.setHeader('User-Agent', 'linux-to-go/1.0.0');
+    request.setHeader('Accept', '*/*');
+
+    request.on('response', (response) => {
+      const statusCode = response.statusCode;
+
+      if (statusCode !== 200) {
+        file.close();
+        fs.unlink(destPath, () => {});
+        reject(new Error(`HTTP ${statusCode}`));
         return;
       }
 
-      const total = parseInt(response.headers['content-length'], 10) || 0;
-      let downloaded = 0;
+      total = parseInt(response.headers['content-length'] || '0', 10);
 
       response.on('data', (chunk) => {
         downloaded += chunk.length;
+        file.write(chunk);
         if (total > 0) {
           const progress = Math.round((downloaded / total) * 100);
           event.sender.send('download-progress', { id, progress, downloaded, total, speed: 0 });
         }
       });
 
-      response.pipe(file);
-
-      file.on('finish', () => {
-        file.close();
+      response.on('end', () => {
+        file.end();
         event.sender.send('download-progress', { id, progress: 100, downloaded, total });
         resolve({ success: true, path: destPath, size: downloaded });
       });
 
-      file.on('error', (err) => {
+      response.on('error', (err) => {
+        file.close();
         fs.unlink(destPath, () => {});
         reject(err);
       });
     });
 
-    req.on('error', reject);
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('下载超时'));
+    request.on('error', (err) => {
+      file.close();
+      fs.unlink(destPath, () => {});
+      reject(err);
     });
+
+    // 60秒超时
+    const timeout = setTimeout(() => {
+      request.abort();
+      file.close();
+      fs.unlink(destPath, () => {});
+      reject(new Error('下载超时'));
+    }, 60000);
+
+    request.on('close', () => {
+      clearTimeout(timeout);
+    });
+
+    request.end();
   });
 });
 
