@@ -22,7 +22,9 @@
   "author": "linux-to-go",
   "license": "MIT",
   "dependencies": {
+    "adm-zip": "^0.5.17",
     "drivelist": "^12.0.2",
+    "follow-redirects": "^1.16.0",
     "node-fetch": "^3.3.2",
     "progress-stream": "^2.0.0"
   },

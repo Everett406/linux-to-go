@@ -491,6 +491,29 @@ body {
   border-radius: 6px;
 }
 
+.iso-info {
+  margin-top: 10px;
+}
+
+.iso-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #f0fff4;
+  border: 1px solid #9ae6b4;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.iso-selected strong {
+  color: #276749;
+}
+
+.iso-selected span {
+  color: var(--text-light);
+}
+
 /* Persist section */
 .persist-size {
   margin-top: 16px;
@@ -503,4 +526,19 @@ body {
   font-weight: 500;
   display: block;
   margin-bottom: 8px;
+}
+
+/* Log output */
+.log-output {
+  background: #1a1a2e;
+  color: #00ff88;
+  font-family: "Consolas", "Monaco", monospace;
+  font-size: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  max-height: 280px;
+  min-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  line-height: 1.6;
 }
